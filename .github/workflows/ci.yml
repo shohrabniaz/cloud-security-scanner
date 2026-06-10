@@ -28,6 +28,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: |
+          set +e
           python -m src.cli scan --demo --format json
           code=$?
           if [ $code -gt 1 ]; then exit $code; fi
