@@ -17,8 +17,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff
-      - run: ruff check src/ --output-format=github
+      - run: pip install -r requirements.txt
+      - run: ruff check src/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
 
   demo:
     runs-on: ubuntu-latest
@@ -27,8 +37,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: |
+      - name: Run offline demo scan
+        run: |
           set +e
           python -m src.cli scan --demo --format json
           code=$?
-          if [ $code -gt 1 ]; then exit $code; fi
+          # Exit 1 is expected when CRITICAL/HIGH findings are present.
+          if [ "$code" -gt 1 ]; then exit "$code"; fi
