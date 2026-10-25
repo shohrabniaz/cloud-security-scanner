@@ -1,7 +1,7 @@
 """Five Azure posture checks (az CLI)."""
 
-from models import Finding, Severity
 from azure_cli import az
+from models import Finding, Severity
 
 
 def check_storage_public_access(subscription_id: str) -> list[Finding]:
