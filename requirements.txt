@@ -1,1 +1,4 @@
+# Development tooling. The scanner itself uses only the Python standard library
+# plus the external `az` CLI at runtime.
 ruff>=0.8.0
+pytest>=8.0.0
