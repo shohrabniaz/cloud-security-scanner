@@ -90,6 +90,7 @@ az login
 az account show --query id -o tsv          # find your subscription ID
 python -m src.cli scan --subscription <SUBSCRIPTION_ID>
 python -m src.cli scan -s <SUBSCRIPTION_ID> --format json
+python -m src.cli scan -s <SUBSCRIPTION_ID> --format sarif > results.sarif   # GitHub Code Scanning
 ```
 
 ## Example output (`--demo`)
@@ -106,9 +107,24 @@ HIGH       AZ-SQL-001       sql-app-dev                    SQL server allows pub
 Summary: CRITICAL=1, HIGH=2, MEDIUM=2
 ```
 
+### Using it in GitHub Actions
+
+```yaml
+- run: python -m src.cli scan -s ${{ secrets.AZURE_SUBSCRIPTION_ID }} --format sarif > results.sarif || true
+- uses: github/codeql-action/upload-sarif@v3
+  with: { sarif_file: results.sarif }
+```
+
+(Requires an `azure/login` step with a Reader-scoped identity first.)
+
 JSON output (`--format json`) emits the same findings as an array of objects
 with `check_id`, `title`, `severity`, `resource`, `detail`, and `remediation`
 fields — convenient for piping into other tooling.
+
+## Detection notes
+
+`AZ-NSG-001` parses `destinationPortRange` and `destinationPortRanges`,
+including ranges such as `20-30`, so `2222` is not misreported as SSH.
 
 ## Tests
 
@@ -130,17 +146,26 @@ pull request to `main`:
 - **test** — the `pytest` suite.
 - **demo** — the offline `--demo` scan, treating the expected exit code `1`
   (findings present) as success.
+- **sarif** — uploads the demo scan as SARIF to GitHub Code Scanning (push only).
+
+Tagging `vX.Y.Z` runs the [release workflow](.github/workflows/release.yml),
+which re-runs the tests and attaches sample SARIF/JSON output to a GitHub Release.
 
 ## Roadmap
 
 - [ ] AWS / GCP posture checks
-- [ ] SARIF export for GitHub Code Scanning
+- [x] SARIF export for GitHub Code Scanning (`--format sarif`)
 - [ ] Policy-as-code mapping (CIS Benchmarks, MITRE ATT&CK)
 - [ ] **LLM-assisted Infrastructure-as-Code (IaC) security repair** — go beyond
   detection toward suggesting and validating fixes to the underlying IaC
   (Terraform / Bicep) that produced a finding.
 
 ### Research context
+
+This scanner detects *live* misconfigurations; the author's companion research
+study, **EASE**, evaluates whether LLMs can *repair* the Infrastructure-as-Code
+that causes them (Checkov/Trivy re-scan, `terraform validate`, and a Kubernetes
+deploy check over 499 Terraform and Kubernetes artefacts). <!-- TODO(Niaz): add the EASE paper/preprint link once public -->
 
 The LLM-assisted repair direction above connects this tool to the author's PhD
 research interest in IaC and cloud security. Relevant literature and prior art:
