@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from checks import demo_findings, run_live_scan
-from reporter import exit_code, format_json, format_table
+from reporter import exit_code, format_json, format_sarif, format_table
 
 
 def main() -> None:
@@ -15,7 +15,7 @@ def main() -> None:
     scan = sub.add_parser("scan", help="Run posture checks")
     scan.add_argument("--subscription", "-s", help="Azure subscription ID")
     scan.add_argument("--demo", action="store_true", help="Offline demo findings (no Azure)")
-    scan.add_argument("--format", choices=("table", "json"), default="table")
+    scan.add_argument("--format", choices=("table", "json", "sarif"), default="table")
 
     args = p.parse_args()
 
@@ -30,6 +30,8 @@ def main() -> None:
 
         if args.format == "json":
             print(format_json(findings))
+        elif args.format == "sarif":
+            print(format_sarif(findings))
         else:
             print(format_table(findings))
         sys.exit(exit_code(findings))
