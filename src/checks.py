@@ -43,6 +43,31 @@ def check_storage_https_only(subscription_id: str) -> list[Finding]:
     return findings
 
 
+def _rule_port_specs(rule: dict) -> list[str]:
+    """Collect port specs from both the single and plural NSG fields."""
+    specs = [rule.get("destinationPortRange") or ""]
+    specs += list(rule.get("destinationPortRanges") or [])
+    return [str(s).strip() for s in specs if str(s).strip()]
+
+
+def _ports_hit(specs: list[str], sensitive: set[int]) -> bool:
+    """True if any spec ('*', '22', '20-30') covers a sensitive port.
+
+    Replaces the earlier substring test, which flagged '2222' as SSH and
+    missed ranges such as '20-30'.
+    """
+    for spec in specs:
+        if spec == "*":
+            return True
+        if "-" in spec:
+            lo, _, hi = spec.partition("-")
+            if lo.isdigit() and hi.isdigit() and any(int(lo) <= p <= int(hi) for p in sensitive):
+                return True
+        elif spec.isdigit() and int(spec) in sensitive:
+            return True
+    return False
+
+
 def check_nsg_open_admin_ports(subscription_id: str) -> list[Finding]:
     findings: list[Finding] = []
     nsgs = az("network", "nsg", "list", "--subscription", subscription_id)
@@ -62,8 +87,9 @@ def check_nsg_open_admin_ports(subscription_id: str) -> list[Finding]:
             src = (rule.get("sourceAddressPrefix") or "").lower()
             if src not in ("*", "0.0.0.0/0", "internet"):
                 continue
-            ports = rule.get("destinationPortRange") or ""
-            if ports == "*" or any(str(p) in ports for p in sensitive):
+            ports = _rule_port_specs(rule)
+            if _ports_hit(ports, sensitive):
+                ports = ",".join(ports)
                 findings.append(
                     Finding(
                         check_id="AZ-NSG-001",
